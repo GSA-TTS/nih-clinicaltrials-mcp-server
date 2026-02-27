@@ -51,7 +51,7 @@ Key pages to review:
 
 **Recommended stack:**
 - **Language**: TypeScript (high-quality SDK support and good compatibility in many execution environments e.g. MCPB. Plus AI models are good at generating TypeScript code, benefiting from its broad usage, static typing and good linting tools)
-- **Transport**: Streamable HTTP for remote servers, using stateless JSON (simpler to scale and maintain, as opposed to stateful sessions and streaming responses). stdio for local servers.
+- **Transport**: Streamable HTTP for remote servers, using `stateless_http=True` (simpler to scale and maintain, as opposed to stateful sessions and streaming responses). stdio for local servers.
 
 **Load framework documentation:**
 
@@ -88,19 +88,22 @@ my-mcp-server/
 ├── .env                    # API keys / secrets (never commit)
 ├── .gitignore
 ├── README.md
-├── main.py                 # Entry point (optional, for local dev)
 └── src/
     └── <servername>/       # Package directory named after the server
         ├── __init__.py
         ├── app.py          # Server initialization & deployment config only
         ├── tools.py        # Single register_tools(mcp) function listing all tools
+        ├── prompts.py      # MCP prompts — register_prompts(mcp)
+        ├── routes.py       # Custom HTTP routes (e.g. health check) — register_routes(mcp)
         ├── models.py       # Pydantic models for API parameters
         └── utils.py        # Utility/helper functions (API client, formatting, etc.)
 ```
 
 **File responsibilities:**
-- **`app.py`**: Create the FastMCP instance, import and call `register_tools(mcp)`, and configure transports (stdio for local, HTTP/SSE for remote). Keep this file minimal — it should only handle deployment concerns.
+- **`app.py`**: Create the FastMCP instance, then call `register_routes(mcp)`, `register_tools(mcp)`, and `register_prompts(mcp)` in that order. Expose `app = mcp.http_app(stateless_http=True)` for ASGI deployments (uvicorn). The `__main__` block checks for a platform port env var (`DATABRICKS_APP_PORT` or `PORT`); if found it starts uvicorn, otherwise falls back to `mcp.run(transport="stdio")` for local MCP clients. Keep this file minimal — it should only handle deployment concerns.
 - **`tools.py`**: Export a single `register_tools(mcp)` function that defines all `@mcp.tool` decorated functions. Each tool function should be defined inside `register_tools()` so tools are registered when called.
+- **`prompts.py`**: Export `register_prompts(mcp)` — defines any `@mcp.prompt` decorated functions.
+- **`routes.py`**: Export `register_routes(mcp)` — adds custom HTTP routes (e.g. a `/health` endpoint) via `mcp.custom_route`.
 - **`models.py`**: Pydantic models, enums, and typed parameter classes for API request/response validation.
 - **`utils.py`**: Shared helpers like API key loading, HTTP client setup, response formatting, and data summarization.
 
